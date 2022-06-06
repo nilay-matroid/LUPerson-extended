@@ -33,6 +33,7 @@ from .wildtracker import WildTrackCrop
 from .cuhk_sysu import cuhkSYSU
 from .cmdm import CMDM
 from .lup import LUP
+from .last import LaST
 
 # Vehicle re-id datasets
 from .veri import VeRi
