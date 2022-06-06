@@ -60,6 +60,7 @@ def default_argument_parser():
     parser.add_argument(
         "--machine-rank", type=int, default=0, help="the rank of this machine (unique per machine)"
     )
+    parser.add_argument("--single-query-only", action="store_true", help="perform evaluation only on single query")
 
     # PyTorch still may leave orphan processes in multi-gpu training.
     # Therefore we use a deterministic way to obtain port,
@@ -421,12 +422,16 @@ class DefaultTrainer(SimpleTrainer):
         return build_reid_test_loader(cfg, dataset_name)
 
     @classmethod
-    def build_evaluator(cls, cfg, dataset_name, output_dir=None):
+    def build_evaluator(cls, cfg, dataset_name, output_dir=None, use_single_query=False):
         data_loader, num_query = cls.build_test_loader(cfg, dataset_name)
+
+        if use_single_query:
+            num_query = 1
+
         return data_loader, ReidEvaluator(cfg, num_query, output_dir)
 
     @classmethod
-    def test(cls, cfg, model):
+    def test(cls, cfg, model, use_single_query=False):
         """
         Args:
             cfg (CfgNode):
@@ -440,7 +445,7 @@ class DefaultTrainer(SimpleTrainer):
         for idx, dataset_name in enumerate(cfg.DATASETS.TESTS):
             logger.info("Prepare testing set")
             try:
-                data_loader, evaluator = cls.build_evaluator(cfg, dataset_name)
+                data_loader, evaluator = cls.build_evaluator(cfg, dataset_name, use_single_query=use_single_query)
             except NotImplementedError:
                 logger.warn(
                     "No evaluator found. implement its `build_evaluator` method."

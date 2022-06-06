@@ -1,5 +1,6 @@
 # credits: https://github.com/KaiyangZhou/deep-person-reid/blob/master/torchreid/metrics/rank.py
 
+from time import time
 import warnings
 from collections import defaultdict
 
@@ -107,7 +108,13 @@ def eval_market1501(distmat, q_feats, g_feats, q_pids, g_pids, q_camids, g_camid
     """Evaluation with market1501 metric
     Key: for each query identity, its gallery images from the same camera view are discarded.
     """
-    num_q, num_g = distmat.shape
+    # num_q, num_g = distmat.shape
+    num_q = q_pids.shape[0]
+    num_g = g_pids.shape[0]
+
+    print("Num queries: ", num_q)
+    print("Num gallery_images: ", num_g)
+
     dim = q_feats.shape[1]
 
     index = faiss.IndexFlatL2(dim)
@@ -117,12 +124,14 @@ def eval_market1501(distmat, q_feats, g_feats, q_pids, g_pids, q_camids, g_camid
         max_rank = num_g
         print('Note: number of gallery samples is quite small, got {}'.format(num_g))
 
+    startx = time()
     if use_distmat:
         indices = np.argsort(distmat, axis=1)
     else:
         _, indices = index.search(q_feats, k=num_g)
 
     matches = (g_pids[indices] == q_pids[:, np.newaxis]).astype(np.int32)
+    print("Time to take get matches: ", time() - startx)
 
     # compute cmc curve for each query
     all_cmc = []

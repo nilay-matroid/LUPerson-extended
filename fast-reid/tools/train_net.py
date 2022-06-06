@@ -36,7 +36,7 @@ def main(args):
 
         Checkpointer(model).load(cfg.MODEL.WEIGHTS)  # load trained model
 
-        res = DefaultTrainer.test(cfg, model)
+        res = DefaultTrainer.test(cfg, model, args.single_query_only)
         return res
 
     trainer = DefaultTrainer(cfg)
@@ -48,7 +48,8 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = default_argument_parser().parse_args()
+    parser = default_argument_parser()
+    args = parser.parse_args()
     print("Command Line Args:", args)
     launch(
         main,

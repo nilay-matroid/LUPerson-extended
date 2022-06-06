@@ -6,6 +6,7 @@
 import copy
 import logging
 from collections import OrderedDict
+from time import time
 from sklearn import metrics
 
 import numpy as np
@@ -100,27 +101,39 @@ class ReidEvaluator(DatasetEvaluator):
             query_features = F.normalize(query_features, dim=1)
             gallery_features = F.normalize(gallery_features, dim=1)
 
-        dist = self.cal_dist(self.cfg.TEST.METRIC, query_features, gallery_features)
+        # TODO(nilay.pande): remove this permanently.
+        # No Need of dist calculation which will only slow things
+        # dist = self.cal_dist(self.cfg.TEST.METRIC, query_features, gallery_features)
+        dist = None
 
         if self.cfg.TEST.RERANK.ENABLED:
             logger.info("Test with rerank setting")
+            print("Calculating distance here instead now")
+            start = time()
+            dist = self.cal_dist(self.cfg.TEST.METRIC, query_features, gallery_features)
+            print("Time to calcuate initial distance mat: ", time() - start)
             k1 = self.cfg.TEST.RERANK.K1
             k2 = self.cfg.TEST.RERANK.K2
             lambda_value = self.cfg.TEST.RERANK.LAMBDA
             q_q_dist = self.cal_dist(self.cfg.TEST.METRIC, query_features, query_features)
             g_g_dist = self.cal_dist(self.cfg.TEST.METRIC, gallery_features, gallery_features)
             re_dist = re_ranking(dist, q_q_dist, g_g_dist, k1, k2, lambda_value)
+
+            print("Time for extraneous re-ranking computation: ", time() - start)
             query_features = query_features.numpy()
             gallery_features = gallery_features.numpy()
             cmc, all_AP, all_INP = evaluate_rank(re_dist, query_features, gallery_features,
                                                  query_pids, gallery_pids, query_camids,
                                                  gallery_camids, use_distmat=True)
+            print("Time taken to evaluate rank with re-ranking computation: ", time() - start)
         else:
             query_features = query_features.numpy()
             gallery_features = gallery_features.numpy()
+            start = time()
             cmc, all_AP, all_INP = evaluate_rank(dist, query_features, gallery_features,
                                                  query_pids, gallery_pids, query_camids, gallery_camids,
                                                  use_distmat=False)
+            print("Time taken to evaluate rank without re-ranking computation: ", time() - start)
         mAP = np.mean(all_AP)
         mINP = np.mean(all_INP)
         for r in [1, 5, 10]:

@@ -104,6 +104,7 @@ def build_reid_test_loader(cfg, dataset_name):
         collate_fn=fast_batch_collator,
         pin_memory=True,
     )
+     
     return test_loader, len(dataset.query)
 
 

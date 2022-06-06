@@ -18,10 +18,15 @@ SOLVER:
 DATASETS:
   NAMES: ("CMDM",)
   TESTS: ("CMDM",)
-  KWARGS: 'data_name:duke+split_mode:id+split_ratio:1.0'
-  ROOT: "/home/dengpanfu/data"
+  KWARGS: 'data_name:market'
+  ROOT: "./datasets/market1501"
 
 TEST:
   EVAL_PERIOD: 60
-  
+  RERANK:
+    ENABLED: True
+    K1: 20
+    K2: 6
+    LAMBDA: 0.3
+
 OUTPUT_DIR: "logs/cmdm/mgn_lup_unsup"

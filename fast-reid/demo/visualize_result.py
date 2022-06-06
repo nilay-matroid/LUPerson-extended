@@ -71,6 +71,7 @@ def get_parser():
     parser.add_argument(
         "--num-vis",
         default=100,
+        type=int,
         help="number of query images to be visualized",
     )
     parser.add_argument(
@@ -124,17 +125,20 @@ if __name__ == '__main__':
     distmat = 1 - torch.mm(q_feat, g_feat.t())
     distmat = distmat.numpy()
 
+    # import pdb
+    # pdb.set_trace()
+
     logger.info("Computing APs for all query images ...")
-    cmc, all_ap, all_inp = evaluate_rank(distmat, q_pids, g_pids, q_camids, g_camids)
+    cmc, all_ap, all_inp = evaluate_rank(distmat, q_feat.numpy(), g_feat.numpy(), q_pids, g_pids, q_camids, g_camids)
     logger.info("Finish computing APs for all query images!")
 
     visualizer = Visualizer(test_loader.dataset)
     visualizer.get_model_output(all_ap, distmat, q_pids, g_pids, q_camids, g_camids)
 
-    logger.info("Start saving ROC curve ...")
-    fpr, tpr, pos, neg = visualizer.vis_roc_curve(args.output)
-    visualizer.save_roc_info(args.output, fpr, tpr, pos, neg)
-    logger.info("Finish saving ROC curve!")
+    # logger.info("Start saving ROC curve ...")
+    # fpr, tpr, pos, neg = visualizer.vis_roc_curve(args.output)
+    # visualizer.save_roc_info(args.output, fpr, tpr, pos, neg)
+    # logger.info("Finish saving ROC curve!")
 
     logger.info("Saving rank list result ...")
     query_indices = visualizer.vis_rank_list(args.output, args.vis_label, args.num_vis,

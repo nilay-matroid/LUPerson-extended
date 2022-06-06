@@ -25,3 +25,5 @@ TEST:
   EVAL_PERIOD: 60
   
 OUTPUT_DIR: "logs/cmdm/mgn_lup_unsup"
+
+USE_SINGLE_QUERY: True
