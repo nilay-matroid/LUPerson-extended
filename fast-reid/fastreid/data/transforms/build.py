@@ -10,7 +10,7 @@ from .transforms import *
 from .autoaugment import AutoAugment
 
 
-def build_transforms(cfg, is_train=True):
+def build_transforms(cfg, is_train=True, normalize=False, **kwargs):
     res = []
 
     if is_train:
@@ -67,5 +67,11 @@ def build_transforms(cfg, is_train=True):
     else:
         size_test = cfg.INPUT.SIZE_TEST
         res.append(T.Resize(size_test, interpolation=3))
+    
     res.append(ToTensor())
+
+    if normalize:
+        print("Applying Standard Pixel Normalization transform")
+        res.append(T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
+
     return T.Compose(res)

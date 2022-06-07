@@ -157,6 +157,9 @@ class MGN(nn.Module):
         else:
             raise TypeError("batched_inputs must be dict or torch.Tensor, but get {}".format(type(batched_inputs)))
 
+        import pdb
+        pdb.set_trace()
+
         images.sub_(self.pixel_mean).div_(self.pixel_std)
         return images
 

@@ -29,8 +29,14 @@ def parser_kwargs(additional_args):
                 kwargs[key] = float(value)
             elif value.isdigit():
                 kwargs[key] = int(value)
+            elif value == 'True' or value == 'False':
+                kwargs[key] = value == "True"
             else:
                 kwargs[key] = value
+
+    print(kwargs)
+    import pdb
+    pdb.set_trace()
     return kwargs
 
 
@@ -49,7 +55,7 @@ def build_reid_train_loader(cfg):
 
     iters_per_epoch = len(train_items) // cfg.SOLVER.IMS_PER_BATCH
     cfg.SOLVER.MAX_ITER *= iters_per_epoch
-    train_transforms = build_transforms(cfg, is_train=True)
+    train_transforms = build_transforms(cfg, is_train=True, **kwargs)
     if not cfg.DATASETS.IS_LMDB:
         train_set = CommDataset(train_items, train_transforms, relabel=True)
     else:
@@ -91,7 +97,7 @@ def build_reid_test_loader(cfg, dataset_name):
         dataset.show_test()
     test_items = dataset.query + dataset.gallery
 
-    test_transforms = build_transforms(cfg, is_train=False)
+    test_transforms = build_transforms(cfg, is_train=False, **kwargs)
     test_set = CommDataset(test_items, test_transforms, relabel=False)
 
     mini_batch_size = cfg.TEST.IMS_PER_BATCH // comm.get_world_size()
