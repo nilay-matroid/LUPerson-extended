@@ -30,6 +30,6 @@ TEST:
     REUSE_FEAT: True
     PARALLEL:
       ENABLED: True
-      NUM_WORKERS: 2
+      NUM_WORKERS: 12
 
 OUTPUT_DIR: "logs/lup_moco/test/last"

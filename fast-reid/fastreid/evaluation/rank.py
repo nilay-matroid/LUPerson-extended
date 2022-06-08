@@ -3,11 +3,12 @@
 from time import time
 import warnings
 from collections import defaultdict
-from bs4 import ResultSet
 
 import faiss
 import numpy as np
 from tqdm import tqdm
+import os
+import pickle as pkl
 
 try:
     from .rank_cylib.rank_cy import evaluate_cy
@@ -215,7 +216,7 @@ def eval_market1501_parallel(distmat, q_feats, g_feats, q_pids, g_pids, q_camids
     matches = (g_pids[indices] == q_pids[:, np.newaxis]).astype(np.int32)
     print("Time to take get matches: ", time() - startx)
 
-    import threading
+    from multiprocessing import Process
     import math
     threads = []
     num_queries_per_thread = math.ceil(num_q / num_workers)
@@ -226,7 +227,8 @@ def eval_market1501_parallel(distmat, q_feats, g_feats, q_pids, g_pids, q_camids
         end = min((worker_idx + 1) * num_queries_per_thread, num_q)
         # No need of locks/mutexes as threads aren't modifying common variables.
         # But need to avoid creating new variables for each argument
-        threads.append(threading.Thread(target=compute_stats, args=(start, end, q_pids.copy(), q_camids.copy(), g_pids.copy(), g_camids.copy(), indices.copy(), matches.copy(), max_rank, worker_idx, results)))
+        # threads.append(threading.Thread(target=compute_stats, args=(start, end, q_pids, q_camids, g_pids, g_camids, indices, matches, max_rank, worker_idx, results)))
+        threads.append(Process(target=compute_stats, args=(start, end, q_pids, q_camids, g_pids, g_camids, indices, matches, max_rank, worker_idx, results)))
 
     # Start all threads
     for worker_idx in range(num_workers):
@@ -243,12 +245,20 @@ def eval_market1501_parallel(distmat, q_feats, g_feats, q_pids, g_pids, q_camids
     all_INP = []
     num_valid_q = 0.  # number of valid query
 
+    temp_dir = "./temp_parallel_results"
+    assert os.path.isdir(temp_dir)
+
+    import pdb
+    pdb.set_trace()
+
     for worker_idx in range(num_workers):
+        f = open(os.path.join(temp_dir, f"results_{worker_idx}.pkl"), "rb")
+        results = pkl.load(f)
+        f.close()
         all_cmc += results[worker_idx]["all_cmc"]
         all_AP += results[worker_idx]["all_AP"]
         all_INP += results[worker_idx]["all_INP"]
-        num_valid_q += ResultSet[worker_idx]["num_valid_q"]
-
+        num_valid_q += results[worker_idx]["num_valid_q"]
 
     assert num_valid_q > 0, 'Error: all query identities do not appear in gallery'
 
@@ -308,6 +318,15 @@ def compute_stats(start, stop, q_pids, q_camids, g_pids, g_camids, indices, matc
     results[worker_idx]["all_AP"] = all_AP
     results[worker_idx]["all_INP"] = all_INP
     results[worker_idx]["num_valid_q"] = num_valid_q
+
+    temp_dir = "./temp_parallel_results"
+    if not os.path.isdir(temp_dir):
+        os.mkdir(temp_dir)
+
+    result_save_file = os.path.join(temp_dir, f"results_{worker_idx}.pkl")
+    f = open(result_save_file, 'wb')
+    pkl.dump(results, f)
+    f.close() 
     return
 
 
