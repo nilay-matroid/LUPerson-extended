@@ -24,5 +24,9 @@ DATASETS:
 TEST:
   EVAL_PERIOD: 60
   IMS_PER_BATCH: 128
+  CACHE:
+    ENABLED: True
+    CACHE_DIR: "logs/lup_moco/test/last/cache"
+    REUSE_FEAT: True
 
 OUTPUT_DIR: "logs/lup_moco/test/last"

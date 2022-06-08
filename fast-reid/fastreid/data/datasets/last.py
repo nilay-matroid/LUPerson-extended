@@ -49,7 +49,7 @@ class LaST(ImageDataset):
         Train mode -> is_train = True
         Test_mode -> is_train = False
         """
-        print(kwargs)
+        
         self.root = root
         self.is_train = train_mode
         self.dataset_dir = osp.join(self.root, self.dataset_name)

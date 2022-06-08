@@ -452,7 +452,18 @@ class DefaultTrainer(SimpleTrainer):
                 )
                 results[dataset_name] = {}
                 continue
-            results_i = inference_on_dataset(model, data_loader, evaluator)
+
+            if not cfg.TEST.CACHE.REUSE_FEAT:
+                results_i = inference_on_dataset(model, data_loader, evaluator)
+            else:
+                logger.info("Skipping inference .. using precomputed cached features")
+                evaluator.check_cache()
+                results_i = evaluator.evaluate()
+                # An evaluator may return None when not in main process.
+                # Replace it by an empty dict instead to make it easier for downstream code to handle
+                if results_i is None:
+                    results_i = {}
+
             results[dataset_name] = results_i
 
         if comm.is_main_process():

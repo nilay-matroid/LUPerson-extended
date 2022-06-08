@@ -4,8 +4,8 @@ MODEL:
   BACKBONE:
     WITH_IBN: False
     EXTRA_BN: True
-  PIXEL_MEAN: [89.896, 79.200, 80.073]
-  PIXEL_STD: [63.872, 64.305, 63.839]
+  PIXEL_MEAN: [123.675, 116.280, 103.530]
+  PIXEL_STD: [58.395, 57.120, 57.375]
 INPUT:
   REA:
     MEAN: [0.0, 0.0, 0.0]
@@ -18,11 +18,16 @@ SOLVER:
 DATASETS:
   NAMES: ("LaST",)
   TESTS: ("LaST",)
-  KWARGS: 'normalize:False+train_mode:False+verbose:True'
+  KWARGS: 'normalize:False+train_mode:True+verbose:True'
   ROOT: "./datasets/last"
 
 TEST:
   EVAL_PERIOD: 60
   IMS_PER_BATCH: 128
+  RERANK:
+    ENABLED: True
+    K1: 20
+    K2: 6
+    LAMBDA: 0.3
 
 OUTPUT_DIR: "logs/lup_moco/test/last"

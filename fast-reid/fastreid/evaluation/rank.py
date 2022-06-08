@@ -3,9 +3,11 @@
 from time import time
 import warnings
 from collections import defaultdict
+from bs4 import ResultSet
 
 import faiss
 import numpy as np
+from tqdm import tqdm
 
 try:
     from .rank_cylib.rank_cy import evaluate_cy
@@ -50,7 +52,7 @@ def eval_cuhk03(distmat, q_feats, g_feats, q_pids, g_pids, q_camids, g_camids, m
     all_AP = []
     num_valid_q = 0.  # number of valid query
 
-    for q_idx in range(num_q):
+    for q_idx in tqdm(range(num_q)):
         # get query pid and camid
         q_pid = q_pids[q_idx]
         q_camid = q_camids[q_idx]
@@ -139,7 +141,7 @@ def eval_market1501(distmat, q_feats, g_feats, q_pids, g_pids, q_camids, g_camid
     all_INP = []
     num_valid_q = 0.  # number of valid query
 
-    for q_idx in range(num_q):
+    for q_idx in tqdm(range(num_q)):
         # get query pid and camid
         q_pid = q_pids[q_idx]
         q_camid = q_camids[q_idx]
@@ -184,17 +186,148 @@ def eval_market1501(distmat, q_feats, g_feats, q_pids, g_pids, q_camids, g_camid
     return all_cmc, all_AP, all_INP
 
 
+def eval_market1501_parallel(distmat, q_feats, g_feats, q_pids, g_pids, q_camids, g_camids, max_rank, use_distmat, num_workers=1):
+    """Parallel Evaluation with market1501 metric
+    Key: for each query identity, its gallery images from the same camera view are discarded.
+    """
+    # num_q, num_g = distmat.shape
+    num_q = q_pids.shape[0]
+    num_g = g_pids.shape[0]
+
+    print("Num queries: ", num_q)
+    print("Num gallery_images: ", num_g)
+
+    dim = q_feats.shape[1]
+
+    index = faiss.IndexFlatL2(dim)
+    index.add(g_feats)
+
+    if num_g < max_rank:
+        max_rank = num_g
+        print('Note: number of gallery samples is quite small, got {}'.format(num_g))
+
+    startx = time()
+    if use_distmat:
+        indices = np.argsort(distmat, axis=1)
+    else:
+        _, indices = index.search(q_feats, k=num_g)
+
+    matches = (g_pids[indices] == q_pids[:, np.newaxis]).astype(np.int32)
+    print("Time to take get matches: ", time() - startx)
+
+    import threading
+    import math
+    threads = []
+    num_queries_per_thread = math.ceil(num_q / num_workers)
+    results = {}
+
+    for worker_idx in range(num_workers):
+        start = worker_idx * num_queries_per_thread
+        end = min((worker_idx + 1) * num_queries_per_thread, num_q)
+        # No need of locks/mutexes as threads aren't modifying common variables.
+        # But need to avoid creating new variables for each argument
+        threads.append(threading.Thread(target=compute_stats, args=(start, end, q_pids.copy(), q_camids.copy(), g_pids.copy(), g_camids.copy(), indices.copy(), matches.copy(), max_rank, worker_idx, results)))
+
+    # Start all threads
+    for worker_idx in range(num_workers):
+        print("Starting thread worker ", worker_idx)
+        threads[worker_idx].start()
+
+    # Wait for all threads to finish
+    for worker_idx in range(num_workers):
+        threads[worker_idx].join()
+
+    # Aggregate results
+    all_cmc = []
+    all_AP = []
+    all_INP = []
+    num_valid_q = 0.  # number of valid query
+
+    for worker_idx in range(num_workers):
+        all_cmc += results[worker_idx]["all_cmc"]
+        all_AP += results[worker_idx]["all_AP"]
+        all_INP += results[worker_idx]["all_INP"]
+        num_valid_q += ResultSet[worker_idx]["num_valid_q"]
+
+
+    assert num_valid_q > 0, 'Error: all query identities do not appear in gallery'
+
+    all_cmc = np.asarray(all_cmc).astype(np.float32)
+    all_cmc = all_cmc.sum(0) / num_valid_q
+
+    return all_cmc, all_AP, all_INP
+
+
+
+def compute_stats(start, stop, q_pids, q_camids, g_pids, g_camids, indices, matches, max_rank, worker_idx, results):
+    # compute cmc curve for each query
+    all_cmc = []
+    all_AP = []
+    all_INP = []
+    num_valid_q = 0.  # number of valid query
+
+    for q_idx in tqdm(range(start, stop)):
+        # get query pid and camid
+        q_pid = q_pids[q_idx]
+        q_camid = q_camids[q_idx]
+
+        # remove gallery samples that have the same pid and camid with query
+        order = indices[q_idx]
+        remove = (g_pids[order] == q_pid) & (g_camids[order] == q_camid)
+        keep = np.invert(remove)
+
+        # compute cmc curve
+        raw_cmc = matches[q_idx][keep]  # binary vector, positions with value 1 are correct matches
+        if not np.any(raw_cmc):
+            # this condition is true when query identity does not appear in gallery
+            continue
+
+        cmc = raw_cmc.cumsum()
+
+        pos_idx = np.where(raw_cmc == 1)
+        max_pos_idx = np.max(pos_idx)
+        inp = cmc[max_pos_idx] / (max_pos_idx + 1.0)
+        all_INP.append(inp)
+
+        cmc[cmc > 1] = 1
+
+        all_cmc.append(cmc[:max_rank])
+        num_valid_q += 1.
+
+        # compute average precision
+        # reference: https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Average_precision
+        num_rel = raw_cmc.sum()
+        tmp_cmc = raw_cmc.cumsum()
+        tmp_cmc = [x / (i + 1.) for i, x in enumerate(tmp_cmc)]
+        tmp_cmc = np.asarray(tmp_cmc) * raw_cmc
+        AP = tmp_cmc.sum() / num_rel
+        all_AP.append(AP)
+
+    results[worker_idx] = {}
+    results[worker_idx]["all_cmc"] = all_cmc
+    results[worker_idx]["all_AP"] = all_AP
+    results[worker_idx]["all_INP"] = all_INP
+    results[worker_idx]["num_valid_q"] = num_valid_q
+    return
+
+
 def evaluate_py(
-        distmat, q_feats, g_feats, q_pids, g_pids, q_camids, g_camids, max_rank, use_metric_cuhk03, use_distmat
+        distmat, q_feats, g_feats, q_pids, g_pids, q_camids, g_camids, max_rank, use_metric_cuhk03, use_distmat, parallelize=False, num_workers=1
 ):
     if use_metric_cuhk03:
         return eval_cuhk03(
             distmat, q_feats, g_feats, g_pids, q_camids, g_camids, max_rank, use_distmat
         )
     else:
-        return eval_market1501(
-            distmat, q_feats, g_feats, q_pids, g_pids, q_camids, g_camids, max_rank, use_distmat
-        )
+        if not parallelize:
+            return eval_market1501(
+                distmat, q_feats, g_feats, q_pids, g_pids, q_camids, g_camids, max_rank, use_distmat
+            )
+        else:
+            assert num_workers > 1, 'Error: Set num_workers greater than 1 for parallelization'
+            return eval_market1501_parallel(
+                distmat, q_feats, g_feats, q_pids, g_pids, q_camids, g_camids, max_rank, use_distmat, num_workers
+            )
 
 
 def evaluate_rank(
@@ -208,7 +341,9 @@ def evaluate_rank(
         max_rank=50,
         use_metric_cuhk03=False,
         use_distmat=False,
-        use_cython=True
+        use_cython=True,
+        parallelize=False,
+        num_workers=1
 ):
     """Evaluates CMC rank.
     Args:
@@ -238,5 +373,5 @@ def evaluate_rank(
     else:
         return evaluate_py(
             distmat, q_feats, g_feats, q_pids, g_pids, q_camids, g_camids, max_rank,
-            use_metric_cuhk03, use_distmat
+            use_metric_cuhk03, use_distmat, parallelize=parallelize, num_workers=num_workers
         )

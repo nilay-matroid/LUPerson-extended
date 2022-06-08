@@ -72,6 +72,7 @@ def build_transforms(cfg, is_train=True, normalize=False, **kwargs):
 
     if normalize:
         print("Applying Standard Pixel Normalization transform")
+        print("Assuming values already between 0 and 1")
         res.append(T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
 
     return T.Compose(res)

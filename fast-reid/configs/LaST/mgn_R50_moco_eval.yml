@@ -18,7 +18,7 @@ SOLVER:
 DATASETS:
   NAMES: ("LaST",)
   TESTS: ("LaST",)
-  KWARGS: 'normalize:False+train_mode:False+verbose:True'
+  KWARGS: 'normalize:False+train_mode:True+verbose:True'
   ROOT: "./datasets/last"
 
 TEST:

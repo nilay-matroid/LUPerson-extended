@@ -19,6 +19,9 @@ from .rank import evaluate_rank
 from .rerank import re_ranking
 from .roc import evaluate_roc
 from fastreid.utils import comm
+import os
+import shutil
+from npy_append_array import NpyAppendArray
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,19 @@ class ReidEvaluator(DatasetEvaluator):
         self._num_query = num_query
         self._output_dir = output_dir
 
+        self.use_cache = self.cfg.TEST.CACHE.ENABLED
+        self.cache_dir = self.cfg.TEST.CACHE.CACHE_DIR
+        self.parallelized = self.cfg.TEST.CACHE.PARALLEL.ENABLED
+        self.num_workers = self.cfg.TEST.CACHE.PARALLEL.NUM_WORKERS
+
+        if self.use_cache:
+            assert self.cache_dir is not None
+            if not os.path.isdir(self.cache_dir):
+                os.mkdir(self.cache_dir)
+            self.pid_file = os.path.join(self.cache_dir, "pid.npy")
+            self.camid_file = os.path.join(self.cache_dir, "camid.npy")
+            self.feat_file = os.path.join(self.cache_dir, "feat.npy")
+            
         self.features = []
         self.pids = []
         self.camids = []
@@ -38,10 +54,24 @@ class ReidEvaluator(DatasetEvaluator):
         self.pids = []
         self.camids = []
 
+        if self.use_cache:
+            # Delete the cache contents
+            logger.info("Resetting ... Deleting any features which were cached")
+            shutil.rmtree(self.cache_dir, ignore_errors=True)
+
+            # Recreate the empty folder
+            os.mkdir(self.cache_dir)
+
+
     def process(self, inputs, outputs):
-        self.pids.extend(inputs["targets"])
-        self.camids.extend(inputs["camids"])
-        self.features.append(outputs.cpu())
+        if self.use_cache:
+            NpyAppendArray(self.pid_file).append(inputs["targets"].numpy())
+            NpyAppendArray(self.camid_file).append(inputs["camids"].numpy())
+            NpyAppendArray(self.feat_file).append(outputs.cpu().numpy())
+        else:
+            self.pids.extend(inputs["targets"])
+            self.camids.extend(inputs["camids"])
+            self.features.append(outputs.cpu())
 
     @staticmethod
     def cal_dist(metric: str, query_feat: torch.tensor, gallery_feat: torch.tensor):
@@ -57,8 +87,25 @@ class ReidEvaluator(DatasetEvaluator):
             dist = dist.clamp(min=1e-12).sqrt()  # for numerical stability
         return dist.cpu().numpy()
 
+    def check_cache(self):
+        assert self.use_cache
+        assert self.cache_dir is not None
+        assert os.path.isdir(self.cache_dir)
+        assert os.path.isfile(self.pid_file)
+        assert os.path.isfile(self.camid_file)
+        assert os.path.isfile(self.feat_file)
+
     def evaluate(self):
-        if comm.get_world_size() > 1:
+        if self.use_cache:
+            # Not sure if multiprocessing can be done with current cache method
+            assert comm.get_world_size() <= 1
+            features = torch.tensor(np.load(self.feat_file, mmap_mode='r'))
+            pids = torch.tensor(np.load(self.pid_file, mmap_mode='r'))
+            camids = torch.tensor(np.load(self.camid_file, mmap_mode='r'))
+            print("Feature size: ", features.shape)
+            print("pids size: ", pids.shape)
+            print("camids size: ", camids.shape)
+        elif comm.get_world_size() > 1:
             comm.synchronize()
             features = comm.gather(self.features)
             features = sum(features, [])
@@ -77,7 +124,9 @@ class ReidEvaluator(DatasetEvaluator):
             pids = self.pids
             camids = self.camids
 
-        features = torch.cat(features, dim=0)
+        if not self.use_cache:
+            features = torch.cat(features, dim=0)
+
         # query feature, person ids and camera ids
         query_features = features[:self._num_query]
         query_pids = np.asarray(pids[:self._num_query])
@@ -124,7 +173,7 @@ class ReidEvaluator(DatasetEvaluator):
             gallery_features = gallery_features.numpy()
             cmc, all_AP, all_INP = evaluate_rank(re_dist, query_features, gallery_features,
                                                  query_pids, gallery_pids, query_camids,
-                                                 gallery_camids, use_distmat=True)
+                                                 gallery_camids, use_distmat=True, parallelize=self.parallelized, num_workers=self.num_workers)
             print("Time taken to evaluate rank with re-ranking computation: ", time() - start)
         else:
             query_features = query_features.numpy()
@@ -132,7 +181,7 @@ class ReidEvaluator(DatasetEvaluator):
             start = time()
             cmc, all_AP, all_INP = evaluate_rank(dist, query_features, gallery_features,
                                                  query_pids, gallery_pids, query_camids, gallery_camids,
-                                                 use_distmat=False)
+                                                 use_distmat=False, parallelize=self.parallelized, num_workers=self.num_workers)
             print("Time taken to evaluate rank without re-ranking computation: ", time() - start)
         mAP = np.mean(all_AP)
         mINP = np.mean(all_INP)
