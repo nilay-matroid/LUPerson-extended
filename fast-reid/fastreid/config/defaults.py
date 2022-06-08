@@ -270,6 +270,15 @@ _C.TEST.PRECISE_BN.ENABLED = False
 _C.TEST.PRECISE_BN.DATASET = 'Market1501'
 _C.TEST.PRECISE_BN.NUM_ITER = 300
 
+# Cache options during inference
+_C.TEST.CACHE = CN()
+_C.TEST.CACHE.ENABLED = False
+_C.TEST.CACHE.CACHE_DIR = None
+_C.TEST.CACHE.REUSE_FEAT = False
+_C.TEST.CACHE.PARALLEL = CN()
+_C.TEST.CACHE.PARALLEL.ENABLED = False
+_C.TEST.CACHE.PARALLEL.NUM_WORKERS = 1
+
 # ---------------------------------------------------------------------------- #
 # Misc options
 # ---------------------------------------------------------------------------- #
