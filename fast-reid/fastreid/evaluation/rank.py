@@ -9,6 +9,7 @@ import numpy as np
 from tqdm import tqdm
 import os
 import pickle as pkl
+import shutil
 
 try:
     from .rank_cylib.rank_cy import evaluate_cy
@@ -248,9 +249,6 @@ def eval_market1501_parallel(distmat, q_feats, g_feats, q_pids, g_pids, q_camids
     temp_dir = "./temp_parallel_results"
     assert os.path.isdir(temp_dir)
 
-    import pdb
-    pdb.set_trace()
-
     for worker_idx in range(num_workers):
         f = open(os.path.join(temp_dir, f"results_{worker_idx}.pkl"), "rb")
         results = pkl.load(f)
@@ -264,6 +262,10 @@ def eval_market1501_parallel(distmat, q_feats, g_feats, q_pids, g_pids, q_camids
 
     all_cmc = np.asarray(all_cmc).astype(np.float32)
     all_cmc = all_cmc.sum(0) / num_valid_q
+
+    # Delete the temp files and folders
+    print("Deleting all temporary folders and files")
+    shutil.rmtree(temp_dir, ignore_errors=True)
 
     return all_cmc, all_AP, all_INP
 
