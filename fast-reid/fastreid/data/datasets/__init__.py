@@ -34,6 +34,7 @@ from .cuhk_sysu import cuhkSYSU
 from .cmdm import CMDM
 from .lup import LUP
 from .last import LaST
+from .sysu30k import sysu30k
 
 # Vehicle re-id datasets
 from .veri import VeRi

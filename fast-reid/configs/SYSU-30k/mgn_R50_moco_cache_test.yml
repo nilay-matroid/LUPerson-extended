@@ -1,0 +1,31 @@
+_BASE_: "../Base-MGN.yml"
+
+MODEL:
+  BACKBONE:
+    WITH_IBN: False
+    EXTRA_BN: True
+  PIXEL_MEAN: [89.896, 79.200, 80.073]
+  PIXEL_STD: [63.872, 64.305, 63.839]
+INPUT:
+  REA:
+    MEAN: [0.0, 0.0, 0.0]
+  DO_AUTOAUG: False
+SOLVER:
+  HEADS_LR_FACTOR: 1.0
+  BACKBONE_BN_LR_FACTOR: 1.0
+  CHECKPOINT_PERIOD: -1
+
+DATASETS:
+  NAMES: ("sysu30k",)
+  TESTS: ("sysu30k",)
+  KWARGS: 'normalize:False+train_mode:False+verbose:True'
+  ROOT: "./datasets/sysu-30k-release"
+
+TEST:
+  EVAL_PERIOD: 60
+  IMS_PER_BATCH: 128
+  CACHE:
+    ENABLED: True
+    CACHE_DIR: "logs/lup_moco/test/sysu30k/cache"
+
+OUTPUT_DIR: "logs/lup_moco/test/sysu30k"
