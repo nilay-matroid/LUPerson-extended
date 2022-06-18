@@ -1,0 +1,30 @@
+_BASE_: "../Base-MGN.yml"
+
+MODEL:
+  DEVICE: "cuda:0"
+  BACKBONE:
+    WITH_IBN: False
+    EXTRA_BN: True
+    PRETRAIN_PATH: "./pretrained_resnets/lup_moco_r50.pth"
+  PIXEL_MEAN: [89.896, 79.200, 80.073]
+  PIXEL_STD: [63.872, 64.305, 63.839]
+INPUT:
+  REA:
+    MEAN: [0.0, 0.0, 0.0]
+  DO_AUTOAUG: False
+SOLVER:
+  HEADS_LR_FACTOR: 1.0
+  BACKBONE_BN_LR_FACTOR: 1.0
+  CHECKPOINT_PERIOD: -1
+
+DATASETS:
+  NAMES: ("LaST",)
+  TESTS: ("LaST",)
+  KWARGS: 'normalize:False+train_mode:True+verbose:True'
+  ROOT: "./datasets"
+
+TEST:
+  EVAL_PERIOD: 60
+  IMS_PER_BATCH: 128
+
+OUTPUT_DIR: "logs/lup_moco/train/last"
