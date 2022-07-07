@@ -148,6 +148,7 @@ class DefaultPredictor:
         self.model.eval()
 
         Checkpointer(self.model).load(cfg.MODEL.WEIGHTS)
+        print(cfg.MODEL.WEIGHTS)
 
     def __call__(self, image):
         """
@@ -160,9 +161,9 @@ class DefaultPredictor:
         with torch.no_grad():  # https://github.com/sphinx-doc/sphinx/issues/4258
             predictions = self.model(inputs)
             # Normalize feature to compute cosine distance
-            features = F.normalize(predictions)
-            features = features.cpu().data
-            return features
+            # features = F.normalize(predictions)
+            # features = features.cpu().data
+            return predictions.cpu().data
 
 
 class DefaultTrainer(SimpleTrainer):

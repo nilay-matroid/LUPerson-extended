@@ -54,6 +54,10 @@ class FeatureExtractionDemo(object):
         # Make shape with a new batch dimension which is adapted for
         # network input
         image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))[None]
+        # print(image)
+        print(image)
+        print("hello")
+        print(image.shape)
         predictions = self.predictor(image)
         return predictions
 

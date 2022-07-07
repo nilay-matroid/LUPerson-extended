@@ -6,6 +6,8 @@ MODEL:
     EXTRA_BN: True
   PIXEL_MEAN: [89.896, 79.200, 80.073]
   PIXEL_STD: [63.872, 64.305, 63.839]
+  WEIGHTS: '/home/ubuntu/Nilay/PersonReIDModels/LUPerson/fast-reid/checkpoints/market.pth'
+  DEVICE: 'cuda:0'
 INPUT:
   REA:
     MEAN: [0.0, 0.0, 0.0]
@@ -18,10 +20,22 @@ SOLVER:
 DATASETS:
   NAMES: ("CMDM",)
   TESTS: ("CMDM",)
-  KWARGS: 'data_name:duke+split_mode:id+split_ratio:1.0'
-  ROOT: "/home/dengpanfu/data"
+  KWARGS: 'data_name:market'
+  ROOT: "./datasets"
 
 TEST:
   EVAL_PERIOD: 60
+  RERANK:
+    ENABLED: True
+    K1: 20
+    K2: 6
+    LAMBDA: 0.3
+  CACHE:
+    ENABLED: True
+    CACHE_DIR: "logs/final/train/market/cache"
+    REUSE_FEAT: True
+    PARALLEL:
+      ENABLED: True
+      NUM_WORKERS: 6
   
-OUTPUT_DIR: "logs/cmdm/mgn_lup_unsup"
+OUTPUT_DIR: "logs/final/train/market"

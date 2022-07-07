@@ -6,6 +6,9 @@ MODEL:
     EXTRA_BN: True
   PIXEL_MEAN: [89.896, 79.200, 80.073]
   PIXEL_STD: [63.872, 64.305, 63.839]
+  WEIGHTS: '/home/ubuntu/Nilay/PersonReIDModels/LUPerson-extended/fast-reid/logs/trained_on_last/model_final.pth'
+  DEVICE: 'cuda:0'
+
 INPUT:
   REA:
     MEAN: [0.0, 0.0, 0.0]
@@ -19,13 +22,22 @@ DATASETS:
   NAMES: ("LaST",)
   TESTS: ("LaST",)
   KWARGS: 'normalize:False+train_mode:False+verbose:True'
-  ROOT: "./datasets/last"
+  ROOT: "./datasets"
 
 TEST:
   EVAL_PERIOD: 60
   IMS_PER_BATCH: 128
+  RERANK:
+    ENABLED: True
+    K1: 20
+    K2: 6
+    LAMBDA: 0.3
   CACHE:
     ENABLED: True
-    CACHE_DIR: "logs/lup_moco/test/last/cache"
-
-OUTPUT_DIR: "logs/lup_moco/test/last"
+    CACHE_DIR: "logs/final/train/last_eval/cache"
+    REUSE_FEAT: False
+    PARALLEL:
+      ENABLED: True
+      NUM_WORKERS: 12
+  
+OUTPUT_DIR: "logs/final/train/last_eval"
