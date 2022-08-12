@@ -1,4 +1,118 @@
-# LUPerson
+# Matroid-LUPerson-extended
+
+# Introduction
+This is a modified implementation of Unsupervised Pre-training for Person Re-identification (LUPerson) which is used for Appearance based Similarity search in Matroid. \
+The model is evaluated on three datasets, namely - Market1501, LaST and SYSU-30k. This documentation covers how to evaluate the model on all of these datasets as well as train the model on LaST and Market1501 dataset. It also covers steps to train and evaluate on a new dataset in the future.
+
+
+# Environment
+Set up the conda environment
+```bash
+conda env create -f environment.yml
+conda activate fastreid
+```
+
+# Config file
+The main parameters and arguments for training/evaluation are specified in config.yaml file such as 
+- Base model architecture
+- Backbones
+- input/output sizes
+- Batch sizes
+- Reranking
+- Caching
+- Parallelized evaluation
+
+Checkout fast-reid/fastreid/config/defaults.py for comprehensive list of parameters set by config files.
+
+Some important ones are:
+- Model
+```bash
+MODEL:
+  BACKBONE:
+    WITH_IBN: False
+    EXTRA_BN: True
+  PIXEL_MEAN: [89.896, 79.200, 80.073]
+  PIXEL_STD: [63.872, 64.305, 63.839]
+```
+- Dataset
+```bash
+DATASETS:
+  NAMES: ("LaST",)
+  TESTS: ("LaST",)
+  KWARGS: 'normalize:False+train_mode:False+verbose:True'
+  ROOT: "./datasets/last"
+```
+
+- Test options
+```bash
+TEST:
+  EVAL_PERIOD: 60
+  IMS_PER_BATCH: 128
+```
+If you want to enable re-ranking. Warning: slower and takes lot of CPU memory but more accurate results.
+```bash
+TEST:
+  RERANK:
+    ENABLED: True
+    K1: 20
+    K2: 6
+    LAMBDA: 0.3
+```
+
+If you want to cache the generated features
+```bash
+TEST:
+  CACHE:
+    ENABLED: True
+    CACHE_DIR: "logs/lup_moco/test/last/cache"
+```
+
+If you want to run eval on cached features with multiple worker threads on different cpus.
+```bash
+TEST:
+  CACHE:
+    REUSE_FEAT: True
+    PARALLEL:
+      ENABLED: True
+      NUM_WORKERS: 12
+```
+
+# Evaluation
+Set variables
+```bash
+DATASET=market
+PATH_TO_CHECKPOINT_FILE='<CHECKPOINT_PATH>'
+```
+
+Run eval script 
+```bash
+python tools/train_net.py --eval-only --config-file <CONFIG_FILE_PATH> DATASETS.ROOT "datasets" DATASETS.KWARGS "data_name:${DATASET}" MODEL.WEIGHTS ${PATH_TO_CHECKPOINT_FILE} MODEL.DEVICE "cuda:0" OUTPUT_DIR "./logs/lup_moco/test/${DATASET}"
+```
+
+Specific settings for each dataset
+- Market1501 \
+  DATASET=market \
+  --config-file "./configs/CMDM/mgn_R50_moco.yml"
+  
+- LaST \
+  DATASET=last \
+  --config-file "./configs/LaST/mgn_R50_moco_cache_test.yml" to generate cached features \
+  --config-file "./configs/LaST/mgn_R50_moco_cache_reuse_parallelized_test.yml" to evaluate cached features
+
+- SYSU-30k \
+  DATASET=last \
+  --config-file "./configs/SYSU-30k/mgn_R50_moco_cache_test.yml"
+
+
+# Training
+
+Script to train on LaST dataset.
+
+```bash
+python tools/train_net.py --num-gpus 1 --config-file ./configs/LaST/mgn_R50_moco_train.yml SOLVER.CHECKPOINT_PERIOD 5
+```
+
+# LUPerson (Original Paper documentation)
 Unsupervised Pre-training for Person Re-identification (LUPerson).
 
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/unsupervised-pre-training-for-person-re/person-re-identification-on-msmt17)](https://paperswithcode.com/sota/person-re-identification-on-msmt17?p=unsupervised-pre-training-for-person-re)

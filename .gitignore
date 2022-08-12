@@ -130,4 +130,12 @@ dmypy.json
 
 logs
 snapshots
+fast-reid/datasets
+*.code-workspace
+*.png
+*.jpeg
+*.jpg
+*.npy
+fast-reid/demo/*.jpg
+fast-reid/demo/*.jpeg
 
